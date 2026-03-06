@@ -7,4 +7,6 @@ TestResults/
 *.cache
 *.pdb
 *.log
-docker-data/
+*.http
+*.Backup.tmp
+WeatherForecast.cs
