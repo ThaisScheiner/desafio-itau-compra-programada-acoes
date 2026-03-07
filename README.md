@@ -1,380 +1,611 @@
-# Sistema de Compra Programada de Ações
+# Desafio Técnico - Sistema de Compra Programada de Ações
 
-## Visão Geral
+## Itaú Corretora - Engenharia de Software
 
-Este projeto implementa um **sistema de investimento automatizado em
-ações**, inspirado no modelo de **compra programada de ativos**
-utilizado por plataformas financeiras.
+---
 
-A solução permite que clientes invistam mensalmente em uma **cesta
-recomendada de ações**, realizando compras automáticas, controle de
-custódia, rebalanceamento de carteira e cálculo de impostos.
+## 1. Sobre o projeto
 
-A arquitetura foi construída utilizando **microserviços com .NET**,
-comunicação entre serviços via **APIs REST** e **eventos Kafka**, e
-persistência em **MySQL**.
+Este projeto implementa um **Sistema de Compra Programada de Ações** inspirado no desafio técnico da **Itaú Corretora**.
 
-O sistema foi projetado para ser **escalável, resiliente e orientado a
-eventos**, refletindo práticas modernas utilizadas em ambientes de
-produção no mercado financeiro.
+A proposta é permitir que clientes adiram a um plano de investimento recorrente em uma **cesta recomendada de 5 ações (Top Five)**. A partir dessa adesão, o sistema passa a:
 
-------------------------------------------------------------------------
+- cadastrar clientes no produto
+- registrar o valor mensal de aporte
+- consolidar compras em uma conta master
+- distribuir ativos proporcionalmente para as contas dos clientes
+- manter resíduos na custódia master
+- calcular preço médio por ativo
+- acompanhar carteira e rentabilidade do cliente
+- calcular eventos de imposto de renda
+- executar rebalanceamentos quando a cesta é alterada ou quando há desvio de proporção
 
-# Objetivo do Projeto
+O objetivo principal foi construir uma solução **modular, organizada e aderente às regras de negócio do desafio**, usando uma arquitetura próxima do que seria esperado em um ambiente moderno de engenharia de software no mercado financeiro.
 
-O objetivo deste projeto é simular uma plataforma de investimentos que
-permita:
+---
 
--   clientes aderirem a um plano de investimento mensal
--   executar compras automáticas de ações
--   manter controle de custódia
--   distribuir ativos entre clientes
--   realizar rebalanceamento de carteira
--   calcular eventos de imposto de renda
--   registrar eventos financeiros
+## 2. Objetivo da solução
 
-O sistema busca resolver o seguinte problema:
+O sistema busca resolver o seguinte problema de negócio:
 
-> Como automatizar a compra recorrente de ativos para diversos clientes
-> utilizando uma cesta recomendada, garantindo consistência de custódia
-> e controle tributário.
+> Como automatizar a compra recorrente de ações para múltiplos clientes, utilizando uma cesta recomendada, com controle de custódia, distribuição proporcional, cálculo de preço médio, geração de eventos tributários e suporte a rebalanceamento?
 
-------------------------------------------------------------------------
+Na prática, a solução implementa:
 
-# Arquitetura da Solução
+- **adesão de clientes ao produto**
+- **controle da cesta Top Five**
+- **consulta/importação de cotações**
+- **execução da compra programada**
+- **controle de custódia master e filhote**
+- **consulta de carteira e rentabilidade**
+- **registro de IR dedo-duro**
+- **registro de IR sobre vendas em rebalanceamento**
+- **consumo de eventos via Kafka**
+- **scheduler para automação de rotinas**
 
-A solução foi construída seguindo uma arquitetura de **microserviços
-orientada a domínio**, onde cada serviço é responsável por uma parte
-específica do sistema.
+---
 
-## Serviços da Arquitetura
+## 3. Arquitetura da solução
+
+A solução foi organizada em **microserviços por domínio**, separando responsabilidades para deixar o sistema mais coeso, mais fácil de manter e mais simples de evoluir.
+
+### Microserviços implementados
+
+#### ClientesService
+Responsável pelo ciclo de vida do cliente dentro do produto.
+
+Principais responsabilidades:
+- adesão ao produto
+- saída do produto
+- alteração do valor mensal
+- listagem de clientes ativos
+- consulta de carteira
+- consulta de rentabilidade
+- manutenção da conta gráfica filhote
+
+#### CestasRecomendacaoService
+Responsável pela gestão da cesta recomendada Top Five.
+
+Principais responsabilidades:
+- cadastrar nova cesta
+- manter apenas uma cesta ativa por vez
+- consultar cesta atual
+- consultar histórico de cestas
+- publicar evento quando a cesta é alterada
+
+#### CotacoesService
+Responsável pela gestão de cotações de mercado.
+
+Principais responsabilidades:
+- importação e leitura de dados de cotação
+- suporte ao conceito do COTAHIST da B3
+- consulta da cotação de fechamento mais recente por ticker
+- persistência de cotações para consumo pelos demais serviços
+
+#### CustodiasService
+Responsável pelo controle das posições dos ativos.
+
+Principais responsabilidades:
+- movimentar ativos em conta master
+- movimentar ativos em conta filhote
+- calcular e atualizar preço médio
+- consultar custódia por cliente
+- consultar custódia master
+- manter resíduos não distribuídos
+
+#### MotorCompraService
+É o coração do fluxo de compra programada.
+
+Principais responsabilidades:
+- buscar clientes ativos
+- calcular 1/3 do valor mensal de cada cliente
+- consolidar aportes
+- consultar cesta vigente
+- consultar cotações
+- considerar saldo existente na conta master
+- gerar ordens de compra
+- distribuir ativos proporcionalmente
+- registrar histórico de aportes
+- integrar com o serviço de eventos de IR
+
+#### RebalanceamentosService
+Responsável por recalcular e movimentar carteiras quando necessário.
+
+Principais responsabilidades:
+- reagir à mudança da cesta via Kafka
+- executar rebalanceamento por cliente
+- registrar vendas realizadas no rebalanceamento
+- calcular base de IR sobre vendas
+- disparar integração com o EventosIRService
+- executar rotina automática por scheduler
+
+#### EventosIRService
+Responsável por registrar e publicar eventos fiscais.
+
+Principais responsabilidades:
+- registrar IR dedo-duro
+- registrar IR sobre venda de rebalanceamento
+- persistir eventos fiscais
+- publicar eventos no Kafka
+- consultar eventos por cliente
+
+---
+
+## 4. Por que essa arquitetura foi escolhida
+
+A escolha por microserviços foi feita porque o domínio do problema já é naturalmente dividido em contextos independentes:
+
+- cliente
+- cesta recomendada
+- cotação
+- compra programada
+- custódia
+- rebalanceamento
+- fiscal
+
+Essa separação traz alguns ganhos importantes:
+
+- **responsabilidade clara por serviço**
+- **menor acoplamento entre contextos de negócio**
+- **facilidade de manutenção**
+- **facilidade de testes e evolução**
+- **melhor aderência a eventos assíncronos**
+
+Mesmo sendo um projeto de desafio técnico, a arquitetura foi pensada para refletir práticas reais de engenharia em sistemas distribuídos.
+
+---
+
+## 5. Tecnologias utilizadas e por que foram usadas
+
+### .NET / ASP.NET Core
+Foi utilizado como stack principal de backend por atender diretamente ao requisito do desafio e por oferecer:
+
+- boa estrutura para APIs REST
+- integração madura com DI
+- bom suporte a testes
+- boa produtividade com Entity Framework Core
+- facilidade para organizar projetos em camadas
+
+### Entity Framework Core
+Foi usado para persistência relacional porque acelera a modelagem, migrations e integração com MySQL.
+
+Foi útil para:
+- mapear entidades do domínio
+- controlar migrations
+- persistir dados com menor esforço estrutural
+
+### MySQL
+Foi escolhido por ser o banco relacional exigido no desafio e por se encaixar bem no modelo transacional do sistema.
+
+Foi usado para persistir:
+- clientes
+- contas gráficas
+- cestas
+- cotações
+- custódias
+- aportes
+- ordens de compra
+- rebalanceamentos
+- eventos fiscais
+
+### Apache Kafka
+Foi utilizado para comunicação assíncrona entre serviços.
+
+Foi importante principalmente para:
+- evento de alteração de cesta
+- publicação de eventos de imposto de renda
+- desacoplamento entre serviços
+- simulação de integração orientada a eventos
+
+### Docker / Docker Compose
+Foi utilizado para facilitar a execução local do ambiente.
+
+Permite subir rapidamente:
+- MySQL
+- Zookeeper
+- Kafka
+
+Isso reduz fricção de setup e deixa o projeto mais fácil de reproduzir.
+
+### Swagger / OpenAPI
+Foi utilizado para:
+- documentar endpoints
+- testar manualmente fluxos do sistema
+- demonstrar o projeto durante a gravação do vídeo
+
+### xUnit, Moq e FluentAssertions
+Foram utilizados nos testes automatizados.
+
+- **xUnit**: framework de testes
+- **Moq**: criação de mocks para dependências externas
+- **FluentAssertions**: assertions mais legíveis e expressivas
+
+---
+
+## 6. Como o sistema funciona na prática
+
+O fluxo principal do sistema é o seguinte:
+
+1. o cliente adere ao produto informando nome, CPF, e-mail e valor mensal
+2. o sistema cria a conta gráfica filhote
+3. o administrador cadastra uma cesta Top Five com 5 ativos e percentuais que somam 100%
+4. as cotações dos ativos são disponibilizadas no CotacoesService
+5. o MotorCompraService busca os clientes ativos e calcula **1/3 do valor mensal** de cada um
+6. os valores são consolidados
+7. o motor consulta a cesta atual
+8. o motor consulta a cotação de fechamento de cada ativo
+9. o motor considera saldo residual da conta master
+10. o motor registra a compra consolidada
+11. o sistema distribui os ativos proporcionalmente para os clientes
+12. o CustodiasService atualiza posições e preço médio
+13. resíduos permanecem na conta master
+14. eventos de IR dedo-duro são registrados
+15. se a cesta mudar, o RebalanceamentosService processa as vendas e compras necessárias
+16. se houver venda acima de R$ 20.000,00 no mês com lucro líquido positivo, o EventosIRService registra o IR devido
+
+---
+
+## 7. Detalhamento do funcionamento por serviço
+
+### 7.1 ClientesService
+O ClientesService funciona como a porta de entrada do cliente no produto.
+
+Ele permite:
+- cadastrar cliente
+- tornar cliente inativo sem apagar sua posição
+- alterar valor mensal
+- consultar carteira
+- consultar rentabilidade
+
+A carteira é montada integrando:
+- posição de custódia do cliente
+- cotação atual dos ativos
+- histórico de aportes do motor de compra
+
+A rentabilidade considera:
+- valor atual da carteira
+- custo da posição com base em preço médio
+- P/L total
+- evolução baseada no histórico de aportes
+
+### 7.2 CestasRecomendacaoService
+Esse serviço centraliza a regra da cesta Top Five.
+
+Ao cadastrar uma nova cesta, o sistema:
+- valida que há exatamente 5 ativos
+- valida que a soma é 100%
+- desativa a cesta anterior
+- cria a nova cesta ativa
+- publica um evento Kafka indicando mudança de composição
+
+### 7.3 CotacoesService
+Esse serviço centraliza a fonte de preço.
+
+Ele foi estruturado para refletir a lógica de uso do COTAHIST:
+- armazenar cotação por ticker e data
+- retornar o último fechamento disponível
+- servir como base para compra, carteira e rebalanceamento
+
+### 7.4 MotorCompraService
+Esse é o fluxo mais importante do sistema.
+
+Em cada execução, ele:
+- recebe uma data de referência
+- verifica se já houve execução para a data
+- busca clientes ativos
+- calcula os aportes parciais
+- soma o valor consolidado
+- consulta a cesta atual
+- consulta a última cotação de fechamento dos tickers
+- calcula quantidade comprada por ativo
+- considera posição existente na conta master
+- registra a compra
+- distribui os ativos
+- registra histórico de aportes
+- dispara integração com eventos fiscais
+
+### 7.5 CustodiasService
+Esse serviço mantém a verdade sobre as posições.
+
+Ele controla:
+- conta master
+- contas filhotes dos clientes
+- movimentação de compra e venda
+- atualização de quantidade
+- atualização de preço médio
+
+Isso é essencial porque o desafio exige:
+- distribuição proporcional
+- manutenção de resíduos
+- cálculo correto de preço médio
+
+### 7.6 RebalanceamentosService
+O rebalanceamento foi implementado para duas necessidades do desafio:
+- mudança de composição da cesta
+- ajuste por desvio de proporção
+
+Quando a cesta muda, o serviço pode:
+- identificar ativo vendido
+- identificar ativo comprado
+- consultar preços
+- movimentar custódia
+- registrar venda para cálculo de IR
+- publicar evento de rebalanceamento executado
+
+Também foi implementado um **scheduler** para rotinas automáticas relacionadas a rebalanceamento.
+
+### 7.7 EventosIRService
+Esse serviço centraliza a parte fiscal.
+
+Ele registra:
+- IR dedo-duro por operação distribuída
+- IR sobre venda em rebalanceamento
+
+Também publica mensagens no Kafka, permitindo desacoplamento e rastreabilidade dos eventos fiscais.
+
+---
+
+## 8. Endpoints principais
 
 ### ClientesService
-
-Responsável por gerenciar clientes e seus planos de investimento.
-
-Funcionalidades:
-
--   adesão ao plano
--   saída do plano
--   alteração do valor de aporte mensal
--   consulta de carteira
--   consulta de rentabilidade
--   listagem de clientes ativos
-
-------------------------------------------------------------------------
+- `POST /api/clientes/adesao`
+- `POST /api/clientes/{clienteId}/saida`
+- `PUT /api/clientes/{clienteId}/valor-mensal`
+- `GET /api/clientes/ativos`
+- `GET /api/clientes/{clienteId}/carteira`
+- `GET /api/clientes/{clienteId}/rentabilidade`
 
 ### CestasRecomendacaoService
-
-Gerencia as **cestas de investimento recomendadas**.
-
-Funcionalidades:
-
--   criação de nova cesta
--   definição de cesta ativa
--   histórico de cestas
--   consulta da cesta atual
-
-Cada cesta contém **5 ativos com seus respectivos pesos percentuais**.
-
-------------------------------------------------------------------------
+- `POST /api/admin/cesta`
+- `GET /api/admin/cesta/atual`
+- `GET /api/admin/cesta/historico`
 
 ### CotacoesService
-
-Responsável por armazenar e consultar **cotações de mercado**.
-
-Funcionalidades:
-
--   importação de dados COTAHIST
--   consulta da última cotação de um ativo
--   atualização de preços
-
-------------------------------------------------------------------------
-
-### MotorCompraService
-
-Este é o **motor principal do sistema**, responsável por executar as
-compras programadas.
-
-Funções do motor:
-
--   calcular aporte total dos clientes
--   obter cesta recomendada
--   consultar cotações
--   calcular quantidade de ativos
--   consolidar compras
--   distribuir ativos para os clientes
--   atualizar custódia
-
-------------------------------------------------------------------------
+- endpoint de importação de cotação/COTAHIST
+- `GET /api/cotacoes/fechamento/ultimo?ticker=...`
 
 ### CustodiasService
+- `POST /api/custodias/movimentar`
+- `GET /api/custodias/cliente/{clienteId}`
+- `GET /api/custodias/master`
 
-Responsável pelo controle de **posições de ativos**.
-
-Possui dois tipos de contas:
-
--   Conta MASTER (conta do sistema)
--   Conta FILHOTE (contas dos clientes)
-
-Funções:
-
--   movimentação de ativos
--   atualização de posição
--   cálculo de preço médio
--   consulta de posições por cliente
--   consulta da conta master
-
-------------------------------------------------------------------------
+### MotorCompraService
+- `POST /api/motor/executar-compra`
+- `GET /api/motor/aportes/{clienteId}`
 
 ### RebalanceamentosService
-
-Responsável por **rebalancear carteiras** quando a composição da cesta
-muda.
-
-Funções:
-
--   cálculo de vendas necessárias
--   execução de vendas
--   geração de lucro/prejuízo
--   cálculo de imposto
-
-------------------------------------------------------------------------
+- endpoint de execução manual de rebalanceamento
+- endpoint de consulta de rebalanceamentos por cliente
 
 ### EventosIRService
+- `POST /api/eventos-ir/dedo-duro`
+- `POST /api/eventos-ir/venda-rebalanceamento`
+- `GET /api/eventos-ir/cliente/{clienteId}`
 
-Gerencia eventos tributários.
+---
 
-Tipos de eventos:
+## 9. Como rodar o projeto
 
--   IR dedo-duro
--   IR sobre venda em rebalanceamento
+## 9.1 Pré-requisitos
 
-Eventos são publicados no **Kafka**.
+É necessário ter instalado:
 
-------------------------------------------------------------------------
+- .NET SDK
+- Docker
+- Docker Compose
+- Git
 
-# Comunicação entre serviços
+---
 
-A comunicação ocorre de duas formas:
+## 9.2 Subir a infraestrutura
 
-## APIs REST
+Na raiz do projeto, abra um terminal e execute:
 
-Para consultas e comandos síncronos.
+```bash
+docker compose up -d
+```
 
-Exemplos:
+Esse comando sobe a infraestrutura de apoio, incluindo:
 
-GET /api/admin/cesta/atual\
-GET /api/cotacoes/fechamento/ultimo\
-POST /api/custodias/movimentar
+- MySQL
+- Zookeeper
+- Kafka
 
-------------------------------------------------------------------------
+Se quiser reiniciar tudo do zero:
 
-## Eventos Kafka
+```bash
+docker compose down -v
+docker compose up --build -d
+```
 
-Para integração assíncrona.
+---
 
-Exemplos de eventos:
+## 9.3 Como abrir o projeto para execução manual
 
--   IR gerado
--   venda em rebalanceamento
--   eventos financeiros
+A forma mais prática de rodar para demonstração é abrir **um terminal para cada microserviço**.
 
-Kafka permite desacoplamento entre serviços.
+### Terminal 1 - ClientesService
+```bash
+dotnet run --project src/services/ClientesService/src/ClientesService.Api/ClientesService.Api/ClientesService.Api.csproj --urls http://localhost:5001
+```
 
-------------------------------------------------------------------------
+### Terminal 2 - CestasRecomendacaoService
+```bash
+dotnet run --project src/services/CestasRecomendacaoService/src/CestasRecomendacaoService.Api/CestasRecomendacaoService.Api/CestasRecomendacaoService.Api.csproj --urls http://localhost:5002
+```
 
-# Tecnologias Utilizadas
+### Terminal 3 - CotacoesService
+```bash
+dotnet run --project src/services/CotacoesService/src/CotacoesService.Api/CotacoesService.Api/CotacoesService.Api.csproj --urls http://localhost:5003
+```
 
-## Backend
+### Terminal 4 - CustodiasService
+```bash
+dotnet run --project src/services/CustodiasService/src/CustodiasService.Api/CustodiasService.Api/CustodiasService.Api.csproj --urls http://localhost:5004
+```
 
--   .NET
--   ASP.NET Core
--   Entity Framework Core
+### Terminal 5 - MotorCompraService
+```bash
+dotnet run --project src/services/MotorCompraService/src/MotorCompraService.Api/MotorCompraService.Api/MotorCompraService.Api.csproj --urls http://localhost:5005
+```
 
-## Banco de Dados
+### Terminal 6 - EventosIRService
+```bash
+dotnet run --project src/services/EventosIRService/src/EventosIRService.Api/EventosIRService.Api/EventosIRService.Api.csproj --urls http://localhost:5006
+```
 
--   MySQL
+### Terminal 7 - RebalanceamentosService
+```bash
+dotnet run --project src/services/RebalanceamentosService/src/RebalanceamentosService.Api/RebalanceamentosService.Api/RebalanceamentosService.Api.csproj --urls http://localhost:5007
+```
 
-## Mensageria
+---
 
--   Apache Kafka
+## 9.4 Como acessar o Swagger
 
-## Containerização
+Depois que os serviços estiverem rodando, abra no navegador:
 
--   Docker
--   Docker Compose
+- `http://localhost:5001/swagger` → ClientesService
+- `http://localhost:5002/swagger` → CestasRecomendacaoService
+- `http://localhost:5003/swagger` → CotacoesService
+- `http://localhost:5004/swagger` → CustodiasService
+- `http://localhost:5005/swagger` → MotorCompraService
+- `http://localhost:5006/swagger` → EventosIRService
+- `http://localhost:5007/swagger` → RebalanceamentosService
 
-## APIs
+---
 
--   RESTful APIs
--   Swagger / OpenAPI
+## 9.5 Ordem recomendada para testar manualmente no Swagger
 
-------------------------------------------------------------------------
+A ordem mais segura para testar o sistema é:
 
-# Infraestrutura com Docker
+1. cadastrar clientes
+2. cadastrar cesta Top Five
+3. cadastrar/importar cotações
+4. executar compra programada
+5. consultar custódia dos clientes
+6. consultar custódia master
+7. consultar carteira
+8. consultar rentabilidade
+9. consultar eventos de IR
+10. alterar cesta e observar rebalanceamento
 
-O ambiente do projeto utiliza **Docker** para facilitar a execução
-local.
+---
 
-Serviços containerizados:
+## 10. Testes automatizados
 
--   MySQL
--   Kafka
--   Zookeeper
--   APIs .NET
+Foram implementados testes automatizados para o **ClientesService**.
 
-Isso permite que todo o sistema seja executado localmente sem
-necessidade de instalação manual de dependências.
+### O que foi testado
+Os testes cobrem regras importantes do serviço, como:
 
-------------------------------------------------------------------------
+- adesão válida de cliente
+- validação de CPF inválido
+- validação de valor mensal mínimo
+- bloqueio de CPF duplicado
+- alteração de valor mensal
+- saída do produto
+- montagem da carteira
+- cálculo de rentabilidade
 
-# Como Rodar o Projeto
+### Bibliotecas usadas
+- **xUnit** para execução dos testes
+- **Moq** para simular dependências externas
+- **FluentAssertions** para assertions mais legíveis
 
-## Pré-requisitos
+### Como rodar o teste do ClientesService na raiz do projeto
 
-Instalar:
+```bash
+dotnet test src/services/ClientesService/tests/ClientesService.Tests/ClientesService.Tests/ClientesService.Tests.csproj
+```
 
--   Docker
--   Docker Compose
--   .NET SDK
+Se quiser saída mais detalhada:
 
-------------------------------------------------------------------------
+```bash
+dotnet test src/services/ClientesService/tests/ClientesService.Tests/ClientesService.Tests/ClientesService.Tests.csproj --logger "console;verbosity=detailed"
+```
 
-## Subir a infraestrutura
+### Por que esse teste é importante
+Como o ClientesService depende de outros serviços, os testes usam mocks para simular integrações como:
 
-Na raiz do projeto:
+- CustodiasService
+- CotacoesService
+- MotorCompraService
 
-docker-compose up -d
+Isso permite validar a regra de negócio de forma isolada, sem depender de o sistema inteiro estar rodando.
 
-Isso irá iniciar:
+---
 
--   MySQL
--   Kafka
--   Zookeeper
+## 11. Principais decisões técnicas
 
-------------------------------------------------------------------------
+### Microserviços por domínio
+Escolhi separar os contextos principais do problema em serviços diferentes porque isso melhora:
+- organização
+- legibilidade
+- manutenibilidade
+- desacoplamento
 
-## Rodar os serviços
+### Kafka para eventos
+Kafka foi usado porque faz sentido em fluxos como:
+- alteração de cesta
+- registro de eventos fiscais
+- integração assíncrona entre serviços
 
-Cada microserviço pode ser executado com:
+### Conta master e contas filhote
+Essa decisão é central para o desafio, porque a compra precisa ser consolidada antes da distribuição.
 
-dotnet run
+### Persistência distribuída por serviço
+Cada serviço mantém seus próprios dados principais, o que deixa a responsabilidade mais bem definida.
 
-Ou via Docker dependendo da configuração.
+### Uso de scheduler
+O scheduler foi adicionado para aproximar a solução de um fluxo mais automatizado, especialmente em rebalanceamento.
 
-------------------------------------------------------------------------
+### Swagger em todos os serviços
+Isso foi importante para:
+- demonstrar o sistema
+- facilitar validação manual
+- deixar a API documentada
 
-# Fluxo de Execução do Sistema
+---
 
-O fluxo principal ocorre da seguinte forma:
+## 12. Qualidade, organização e métodos utilizados
 
-1.  Clientes aderem ao plano de investimento
-2.  Uma cesta de ativos é definida
-3.  Cotações são importadas
-4.  O motor executa compras
-5.  Ativos são distribuídos aos clientes
-6.  Custódias são atualizadas
-7.  Eventos tributários são gerados
-8.  Rebalanceamentos podem ocorrer
+Durante o desenvolvimento, procurei aplicar:
 
-------------------------------------------------------------------------
+- separação de responsabilidades
+- organização por domínio
+- uso de DTOs para contratos externos
+- uso de exceptions de domínio para regras de negócio
+- integração HTTP tipada entre serviços
+- eventos para desacoplamento
+- testes automatizados para regras críticas do cliente
 
-# Exemplo de Execução de Compra
+Mesmo sendo um desafio técnico, a ideia foi deixar o projeto o mais próximo possível de uma solução profissional, sem perder clareza.
 
-Endpoint:
+---
 
-POST /api/motor/executar-compra
+## 13. Possíveis melhorias futuras
 
-Resposta simplificada:
+Algumas melhorias que poderiam ser adicionadas em uma evolução futura:
 
-totalClientes: 2\
-totalConsolidado: 3466.67\
-planoPorTicker: PETR4, VALE3, ITUB4\
-distribuições por cliente
+- autenticação e autorização
+- frontend para o cliente e painel administrativo
+- observabilidade com métricas e tracing
+- mais cobertura de testes
+- política de retry e circuit breaker mais padronizada em todos os serviços
+- compensação de prejuízo em IR entre meses
+- maior refinamento do histórico de evolução da carteira
 
-------------------------------------------------------------------------
+---
 
-# Decisões de Arquitetura
+## 14. Considerações finais
 
-## Arquitetura de Microserviços
+Este projeto foi desenvolvido com foco em:
 
-Separação por domínio:
+- aderência ao desafio proposto
+- separação de responsabilidades
+- organização arquitetural
+- demonstração de regras de negócio financeiras
+- comunicação síncrona e assíncrona entre serviços
 
--   clientes
--   custódia
--   cotação
--   compra
--   rebalanceamento
--   eventos tributários
-
-Isso permite maior escalabilidade e manutenção.
-
-------------------------------------------------------------------------
-
-## Uso de Kafka
-
-Kafka foi utilizado para:
-
--   desacoplar serviços
--   permitir processamento assíncrono
--   registrar eventos financeiros
-
-------------------------------------------------------------------------
-
-## Conta MASTER
-
-Foi implementada uma conta master para:
-
--   consolidar compras
--   evitar múltiplas ordens de mercado
--   distribuir ativos posteriormente aos clientes
-
-------------------------------------------------------------------------
-
-## Controle de Custódia
-
-Cada cliente possui sua própria posição de ativos, com controle de:
-
--   quantidade
--   preço médio
-
-------------------------------------------------------------------------
-
-# Segurança e Resiliência
-
-O sistema implementa:
-
--   tratamento de erros
--   circuit breaker
--   retry
--   timeout de chamadas HTTP
-
-Isso garante maior robustez em comunicação entre serviços.
-
-------------------------------------------------------------------------
-
-# Possíveis Melhorias Futuras
-
-Algumas melhorias poderiam ser implementadas:
-
--   autenticação e autorização
--   testes automatizados
--   observabilidade
--   métricas e monitoramento
--   interface frontend
-
-------------------------------------------------------------------------
-
-# Considerações Finais
-
-Este projeto demonstra a implementação de um sistema distribuído para
-gestão de investimentos automatizados, utilizando tecnologias modernas e
-práticas comuns em arquiteturas financeiras baseadas em microserviços.
-
-A solução foi projetada com foco em:
-
--   separação de responsabilidades
--   comunicação assíncrona
--   escalabilidade
--   organização por domínio
+A solução cobre os principais fluxos exigidos pelo desafio e foi pensada para ser demonstrável, organizada e tecnicamente consistente.
