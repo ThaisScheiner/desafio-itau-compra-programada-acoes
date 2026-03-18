@@ -2,7 +2,11 @@ using System.Net;
 using BuildingBlocks.Correlation;
 using BuildingBlocks.Extensions;
 using Microsoft.EntityFrameworkCore;
+using MotorCompraService.Api.Infrastructure.Observability;
 using MotorCompraService.Api.Infrastructure.Persistence;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -62,7 +66,7 @@ static IAsyncPolicy<HttpResponseMessage> CircuitBreakerPolicy(ILogger logger)
 
 static IAsyncPolicy<HttpResponseMessage> TimeoutPolicy()
 {
-    return Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(5));
+    return Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(15));
 }
 
 using var loggerFactory = LoggerFactory.Create(lb => lb.AddConsole());
@@ -111,6 +115,49 @@ builder.Services.AddHttpClient("EventosIRService", c =>
 .AddPolicyHandler(TimeoutPolicy())
 .AddPolicyHandler(RetryWithBackoffPolicy(pollyLogger))
 .AddPolicyHandler(CircuitBreakerPolicy(pollyLogger));
+
+// OPEN TELEMETRY
+var otlpEndpoint = builder.Configuration["OpenTelemetry:Otlp:Endpoint"] ?? "http://localhost:4318";
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService(
+            serviceName: Telemetry.ServiceName,
+            serviceVersion: Telemetry.ServiceVersion)
+        .AddAttributes(new Dictionary<string, object>
+        {
+            ["deployment.environment"] = builder.Environment.EnvironmentName,
+            ["service.namespace"] = "CompraProgramadaAcoes"
+        }))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation(options =>
+        {
+            options.RecordException = true;
+            options.Filter = httpContext =>
+                !httpContext.Request.Path.StartsWithSegments("/health") &&
+                !httpContext.Request.Path.StartsWithSegments("/swagger");
+        })
+        .AddHttpClientInstrumentation(options =>
+        {
+            options.RecordException = true;
+        })
+        .AddSource(Telemetry.ServiceName)
+        .AddOtlpExporter(opt =>
+        {
+            opt.Endpoint = new Uri("http://localhost:4318/v1/traces");
+            opt.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf;
+        })
+        .AddConsoleExporter())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter(Telemetry.ServiceName)
+        .AddOtlpExporter(opt =>
+        {
+            opt.Endpoint = new Uri("http://localhost:4318/v1/metrics");
+            opt.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf;
+        })
+        .AddConsoleExporter());
 
 // HEALTH
 builder.Services.AddHealthChecks()
