@@ -202,8 +202,8 @@ Foi utilizado para facilitar a execução local do ambiente.
 
 Permite subir rapidamente:
 - MySQL
-- Zookeeper
 - Kafka
+- OpenTelemetry Collector
 
 Isso reduz fricção de setup e deixa o projeto mais fácil de reproduzir.
 
@@ -211,7 +211,7 @@ Isso reduz fricção de setup e deixa o projeto mais fácil de reproduzir.
 Foi utilizado para:
 - documentar endpoints
 - testar manualmente fluxos do sistema
-- demonstrar o projeto durante a gravação do vídeo
+- demonstrar o projeto durante a apresentação
 
 ### xUnit, Moq e FluentAssertions
 Foram utilizados nos testes automatizados.
@@ -219,6 +219,16 @@ Foram utilizados nos testes automatizados.
 - **xUnit**: framework de testes
 - **Moq**: criação de mocks para dependências externas
 - **FluentAssertions**: assertions mais legíveis e expressivas
+
+### OpenTelemetry
+Foi utilizado para adicionar **observabilidade** ao projeto, principalmente no `MotorCompraService`.
+
+Com OpenTelemetry foi possível:
+- rastrear o fluxo completo da compra programada
+- medir duração das etapas críticas
+- instrumentar chamadas HTTP entre microserviços
+- expor métricas técnicas e métricas de negócio
+- correlacionar logs com `traceId`
 
 ---
 
@@ -408,8 +418,8 @@ docker compose up -d
 Esse comando sobe a infraestrutura de apoio, incluindo:
 
 - MySQL
-- Zookeeper
 - Kafka
+- OpenTelemetry Collector
 
 Se quiser reiniciar tudo do zero:
 
@@ -566,6 +576,9 @@ Isso foi importante para:
 - facilitar validação manual
 - deixar a API documentada
 
+### Observabilidade concentrada no MotorCompraService
+A observabilidade foi priorizada no `MotorCompraService` porque ele é o serviço mais crítico do fluxo. Ele orquestra a compra programada, conversa com vários serviços externos e concentra a principal regra de negócio do desafio. Por isso, foi o melhor ponto para demonstrar tracing, métricas e correlação de logs de forma objetiva.
+
 ---
 
 ## 12. Qualidade, organização e métodos utilizados
@@ -584,13 +597,142 @@ Mesmo sendo um desafio técnico, a ideia foi deixar o projeto o mais próximo po
 
 ---
 
-## 13. Possíveis melhorias futuras
+## 13. Observabilidade e telemetria
+
+Além do fluxo funcional, o projeto recebeu uma camada de observabilidade com foco principal no `MotorCompraService`, já que esse serviço concentra a etapa mais sensível do sistema: a execução da compra programada, a consulta a múltiplas dependências externas, o cálculo das quantidades por ativo, a distribuição dos papéis e a integração com o serviço de eventos fiscais.
+
+A observabilidade foi adicionada para permitir rastreamento completo da execução, medição de latência entre etapas, correlação de logs com requisições específicas e análise mais clara de falhas em um fluxo distribuído. Em vez de enxergar apenas mensagens soltas de log, a solução passa a mostrar a jornada da operação ponta a ponta.
+
+A implementação foi feita com **OpenTelemetry**, utilizando tracing, métricas e exportação via **OTLP** para um **OpenTelemetry Collector** executado em Docker.
+
+### Onde a observabilidade foi aplicada
+
+A instrumentação foi concentrada principalmente no método `ExecutarCompra` do `MotorCompraService`, porque ele representa o fluxo principal do negócio.
+
+Foram adicionados spans internos e métricas nas seguintes etapas:
+
+- entrada da requisição `POST /api/motor/executar-compra`
+- busca de clientes ativos
+- carregamento da cesta vigente
+- consulta das cotações
+- leitura da custódia master inicial
+- cálculo do plano por ticker
+- distribuição dos ativos
+- publicação dos eventos de IR
+- leitura final da custódia master
+- finalização da execução
+- tratamento de exceções
+
+Essa escolha faz sentido porque cada uma dessas etapas representa um ponto importante do domínio. Quando uma compra programada demora mais do que o esperado ou falha no meio do caminho, a instrumentação permite identificar exatamente em qual parte isso aconteceu.
+
+### Tracing distribuído
+
+Foi utilizado `ActivitySource` para criar spans customizados no `MotorCompraService`.
+
+Com isso, o fluxo principal da compra programada passou a ter um span pai, e as subetapas mais importantes passaram a ser registradas como spans internos. Isso permite visualizar o encadeamento lógico da execução, com duração, contexto e metadados de negócio.
+
+No fluxo de compra programada, o tracing foi usado para registrar informações como:
+
+- data de referência da execução
+- total de clientes processados
+- valor total consolidado
+- quantidade de ativos da cesta
+- quantidade de ordens planejadas
+- quantidade de distribuições realizadas
+- total de movimentações em custódia
+- quantidade de eventos de IR publicados
+- resultado final da operação
+
+Esse tracing foi aplicado justamente nas partes do fluxo em que o sistema toma decisões importantes ou depende de integrações externas. Assim, se houver timeout em um serviço, erro de cotação, falha de custódia ou lentidão na distribuição, o trace ajuda a localizar o problema com muito mais precisão.
+
+### Métricas
+
+Também foram adicionadas métricas customizadas para acompanhar o comportamento do motor.
+
+Entre elas:
+
+- contador de compras executadas com sucesso
+- contador de execuções com erro
+- histograma com a duração total da execução da compra programada
+
+Essas métricas foram usadas porque ajudam a enxergar o sistema de forma agregada. Enquanto o tracing mostra uma execução específica, as métricas permitem acompanhar tendência, volume e comportamento geral do serviço.
+
+No contexto do desafio, isso ajuda a demonstrar maturidade técnica porque o projeto não apenas executa o fluxo, mas também consegue medir estabilidade e desempenho do processo principal.
+
+### Logs estruturados com `ILogger`
+
+Além da telemetria, foram adicionados logs estruturados com `ILogger` em pontos estratégicos do fluxo.
+
+Os logs foram posicionados especialmente:
+
+- após buscar os clientes
+- após carregar a cesta
+- após montar o plano por ticker
+- antes do commit final
+- no sucesso da execução
+- no tratamento de erro
+
+Esses logs foram colocados nesses pontos porque representam marcos importantes do processo. Dessa forma, ao ler o log de uma execução, fica claro o que já foi carregado, o que foi calculado, qual foi o volume processado e em qual etapa ocorreu algum erro.
+
+### Correlação com `traceId`
+
+Foi utilizado `BeginScope` com um helper de contexto para incluir `traceId` e `spanId` nos logs.
+
+Isso foi importante porque permite correlacionar os logs gerados pelo serviço com os spans da telemetria. Em um sistema com múltiplas chamadas HTTP entre microserviços, essa correlação facilita bastante o diagnóstico, já que uma mesma execução pode atravessar várias etapas e várias dependências.
+
+Na prática, isso significa que, ao identificar um problema em um log, é possível localizar o mesmo fluxo dentro da telemetria e entender a jornada completa da operação.
+
+### Instrumentação automática de ASP.NET Core e HttpClient
+
+Além dos spans customizados, foi utilizada instrumentação automática do ASP.NET Core e do `HttpClient`.
+
+Isso permitiu capturar automaticamente:
+
+- requisições recebidas pelo serviço
+- duração das chamadas HTTP feitas para outros microserviços
+- status codes das respostas externas
+- erros em integrações HTTP
+
+Essa parte foi importante porque o `MotorCompraService` conversa com vários outros serviços durante a execução. Com essa instrumentação, o projeto consegue mostrar não só a lógica interna do motor, mas também o impacto das dependências externas no tempo total da compra programada.
+
+### Exportação OTLP e Collector
+
+A telemetria foi configurada para ser exportada via OTLP para um **OpenTelemetry Collector** rodando em Docker.
+
+Nos testes locais, o collector foi configurado em modo `debug`, permitindo visualizar diretamente no terminal:
+
+- spans do fluxo principal
+- spans internos do motor
+- chamadas HTTP para outros serviços
+- métricas automáticas do ASP.NET Core
+- métricas de `HttpClient`
+- métricas customizadas do negócio
+
+Isso foi suficiente para validar que a instrumentação estava funcionando corretamente e para comprovar o rastreamento ponta a ponta do fluxo.
+
+### Por que isso é relevante no projeto
+
+A observabilidade foi adicionada para aproximar o desafio de um cenário mais real de engenharia de software. Em um ambiente distribuído, principalmente em um contexto financeiro, não basta apenas o fluxo funcionar. Também é importante conseguir responder perguntas como:
+
+- quanto tempo a execução da compra levou
+- em qual dependência o fluxo ficou mais lento
+- quantos eventos de IR foram gerados
+- quantas movimentações em custódia ocorreram
+- em qual etapa uma execução falhou
+- qual `traceId` corresponde a um erro específico
+
+Ao adicionar telemetria, métricas e logs estruturados, o projeto passa a demonstrar não apenas implementação funcional, mas também capacidade de diagnóstico e acompanhamento operacional, o que fortalece bastante a solução do ponto de vista de engenharia.
+
+---
+
+## 14. Possíveis melhorias futuras
 
 Algumas melhorias que poderiam ser adicionadas em uma evolução futura:
 
 - autenticação e autorização
 - frontend para o cliente e painel administrativo
-- observabilidade com métricas e tracing
+- expansão da observabilidade para `EventosIRService`, `RebalanceamentosService`, `CotacoesService` e demais microserviços
+- integração visual da telemetria com ferramentas como Jaeger, Grafana ou Datadog
 - mais cobertura de testes
 - política de retry e circuit breaker mais padronizada em todos os serviços
 - compensação de prejuízo em IR entre meses
@@ -598,7 +740,7 @@ Algumas melhorias que poderiam ser adicionadas em uma evolução futura:
 
 ---
 
-## 14. Considerações finais
+## 15. Considerações finais
 
 Este projeto foi desenvolvido com foco em:
 
