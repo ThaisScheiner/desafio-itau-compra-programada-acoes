@@ -1,0 +1,52 @@
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <span>ITA Corretora</span>
+    </div>
+
+    <nav>
+      <a routerLink="/" routerLinkActive="active">
+        <mat-icon>dashboard</mat-icon>
+        Dashboard
+      </a>
+
+      <a routerLink="/clientes" routerLinkActive="active">
+        <mat-icon>group</mat-icon>
+        Clientes
+      </a>
+
+      <a routerLink="/cestas" routerLinkActive="active">
+        <mat-icon>inventory</mat-icon>
+        Cestas
+      </a>
+
+      <a routerLink="/motor-compra" routerLinkActive="active">
+        <mat-icon>settings</mat-icon>
+        Motor Compra
+      </a>
+
+      <a routerLink="/observabilidade" routerLinkActive="active">
+        <mat-icon>monitoring</mat-icon>
+        Observabilidade
+      </a>
+    </nav>
+  </aside>
+
+  <!-- CONTEÚDO -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <h2>Compra Programada de Ações</h2>
+    </header>
+
+    <!-- PÁGINAS -->
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+
+  </div>
+
+</div>
