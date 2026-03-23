@@ -1,0 +1,108 @@
+<section class="page-shell">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">COMPRA PROGRAMADA DE AÇÕES</p>
+      <h1>Observabilidade</h1>
+      <p class="subtitle">
+        Acompanhe a saúde dos microserviços e o estado geral da plataforma.
+      </p>
+      <p class="last-update">
+        Última atualização: <strong>{{ ultimaAtualizacao || '-' }}</strong>
+      </p>
+    </div>
+
+    <button mat-raised-button class="primary-btn" (click)="carregarStatus()">
+      Atualizar status
+    </button>
+  </header>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span class="summary-label">Serviços saudáveis</span>
+      <strong class="summary-value">{{ totalUp }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span class="summary-label">Serviços indisponíveis</span>
+      <strong class="summary-value danger">{{ totalDown }}</strong>
+    </article>
+
+    <article class="summary-card wide">
+      <span class="summary-label">Status geral</span>
+      <strong class="summary-value">{{ statusGeral }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span class="summary-label">Clientes processados</span>
+      <strong class="summary-value">{{ clientesProcessados }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span class="summary-label">Total consolidado</span>
+      <strong class="summary-value">{{ totalConsolidado | currency:'BRL' }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span class="summary-label">Eventos IR</span>
+      <strong class="summary-value">{{ eventosIr }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span class="summary-label">Movimentações de custódia</span>
+      <strong class="summary-value">{{ movimentacoesCustodia }}</strong>
+    </article>
+  </section>
+
+  @if (loading) {
+    <section class="empty-state">
+      <p>Carregando status dos serviços...</p>
+    </section>
+  } @else {
+    <section class="services-grid">
+      @for (servico of servicos; track servico.nome) {
+        <article
+          class="service-card"
+          [class.up-card]="servico.status === 'UP'"
+          [class.down-card]="servico.status === 'DOWN'">
+
+          <div class="service-header">
+            <div>
+              <h3>{{ servico.nome }}</h3>
+              <p>{{ servico.url }}</p>
+            </div>
+
+            <span
+              class="status-badge"
+              [class.up]="servico.status === 'UP'"
+              [class.down]="servico.status === 'DOWN'">
+              {{ servico.status }}
+            </span>
+          </div>
+
+          <div class="service-body">
+            <p><strong>HTTP:</strong> {{ servico.httpStatus }}</p>
+            <p><strong>Última verificação:</strong> {{ servico.ultimaVerificacao }}</p>
+            <p><strong>Tempo de resposta:</strong> {{ servico.tempoRespostaMs }} ms</p>
+
+            <p>
+              <strong>Trace ID:</strong><br />
+              <span class="telemetry-value">{{ servico.traceId }}</span>
+            </p>
+
+            <p>
+              <strong>Span ID:</strong><br />
+              <span class="telemetry-value">{{ servico.spanId }}</span>
+            </p>
+
+            <p>
+              <strong>Correlation ID:</strong><br />
+              <span class="telemetry-value">{{ servico.correlationId }}</span>
+            </p>
+
+            <p><strong>Detalhes:</strong> {{ servico.detalhes }}</p>
+          </div>
+        </article>
+      }
+    </section>
+  }
+</section>
