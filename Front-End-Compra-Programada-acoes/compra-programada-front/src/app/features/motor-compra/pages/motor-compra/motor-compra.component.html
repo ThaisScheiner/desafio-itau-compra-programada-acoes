@@ -1,0 +1,186 @@
+<div class="motor-page">
+  <section class="page-header">
+    <div>
+      <p class="eyebrow">COMPRA PROGRAMADA DE AÇÕES</p>
+      <h1>Motor de Compra</h1>
+      <p class="subtitle">
+        Execute manualmente a compra programada e acompanhe o resultado consolidado da operação.
+      </p>
+    </div>
+  </section>
+
+  <section class="form-card">
+    <div class="form-grid">
+      <div class="field">
+        <label for="dataReferencia">Data de referência</label>
+        <input
+          id="dataReferencia"
+          type="date"
+          [(ngModel)]="dataReferencia"
+        />
+      </div>
+
+      <div class="actions">
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="executarCompra()"
+          [disabled]="executando"
+        >
+          {{ executando ? 'Executando...' : 'Executar Compra' }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  @if (loading) {
+    <section class="empty-card">
+      <p>Processando compra programada...</p>
+    </section>
+  }
+
+  @if (resultado) {
+    <section class="summary-grid">
+      <div class="summary-card">
+        <span class="summary-label">Total de clientes</span>
+        <strong class="summary-value">{{ resultado.totalClientes }}</strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Total consolidado</span>
+        <strong class="summary-value">
+          {{ resultado.totalConsolidado | currency:'BRL' }}
+        </strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Eventos IR</span>
+        <strong class="summary-value">{{ resultado.eventosIRPublicados }}</strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Movimentações</span>
+        <strong class="summary-value">{{ resultado.movimentacoesCustodia }}</strong>
+      </div>
+    </section>
+
+    <section class="result-card">
+      <h2>Resumo da execução</h2>
+
+      <div class="result-info">
+        <p><strong>Data de execução:</strong> {{ resultado.dataExecucao | date:'dd/MM/yyyy HH:mm' }}</p>
+        <p><strong>Data de referência:</strong> {{ resultado.dataReferencia | date:'dd/MM/yyyy' }}</p>
+        <p><strong>Mensagem:</strong> {{ resultado.mensagem }}</p>
+      </div>
+    </section>
+
+    <section class="result-card">
+      <h2>Plano por ticker</h2>
+
+      <div class="ticker-grid">
+        @for (item of resultado.planoPorTicker; track item.ticker) {
+          <div class="ticker-card">
+            <h3>{{ item.ticker }}</h3>
+            <p><strong>Qtd desejada:</strong> {{ item.qtdDesejada }}</p>
+            <p><strong>Saldo master anterior:</strong> {{ item.saldoMasterAnterior }}</p>
+            <p><strong>Qtd comprada:</strong> {{ item.qtdComprada }}</p>
+            <p><strong>Total disponível:</strong> {{ item.totalDisponivel }}</p>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="result-card">
+      <h2>Ordens de compra</h2>
+
+      @if (resultado.ordensCompra.length === 0) {
+        <p>Nenhuma ordem de compra gerada.</p>
+      } @else {
+        <table mat-table [dataSource]="resultado.ordensCompra" class="mat-elevation-z8 full-table">
+
+          <ng-container matColumnDef="ticker">
+            <th mat-header-cell *matHeaderCellDef>Ticker</th>
+            <td mat-cell *matCellDef="let item">{{ item.ticker }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="quantidade">
+            <th mat-header-cell *matHeaderCellDef>Quantidade</th>
+            <td mat-cell *matCellDef="let item">{{ item.quantidade }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="precoUnitario">
+            <th mat-header-cell *matHeaderCellDef>Preço Unitário</th>
+            <td mat-cell *matCellDef="let item">
+              {{ item.precoUnitario | currency:'BRL' }}
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="tipoMercado">
+            <th mat-header-cell *matHeaderCellDef>Tipo Mercado</th>
+            <td mat-cell *matCellDef="let item">{{ item.tipoMercado }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedOrdensColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedOrdensColumns;"></tr>
+        </table>
+      }
+    </section>
+
+    <section class="result-card">
+      <h2>Distribuições por cliente</h2>
+
+      @if (resultado.distribuicoes.length === 0) {
+        <p>Nenhuma distribuição gerada.</p>
+      } @else {
+        <div class="ticker-grid">
+          @for (dist of resultado.distribuicoes; track dist.clienteId) {
+            <div class="ticker-card">
+              <h3>Cliente {{ dist.clienteId }}</h3>
+              <p><strong>Valor aporte:</strong> {{ dist.valorAporte | currency:'BRL' }}</p>
+
+              <div class="sub-list">
+                @for (ativo of dist.ativos; track ativo.ticker) {
+                  <div class="sub-row">
+                    <span>{{ ativo.ticker }}</span>
+                    <strong>{{ ativo.quantidade }}</strong>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </section>
+
+    <section class="result-card">
+      <h2>Resíduos da custódia master</h2>
+
+      @if (resultado.residuosCustodiaMaster.length === 0) {
+        <p>Nenhum resíduo encontrado.</p>
+      } @else {
+        <table mat-table [dataSource]="resultado.residuosCustodiaMaster" class="mat-elevation-z8 full-table">
+
+          <ng-container matColumnDef="ticker">
+            <th mat-header-cell *matHeaderCellDef>Ticker</th>
+            <td mat-cell *matCellDef="let item">{{ item.ticker }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="quantidade">
+            <th mat-header-cell *matHeaderCellDef>Quantidade</th>
+            <td mat-cell *matCellDef="let item">{{ item.quantidade }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="precoMedio">
+            <th mat-header-cell *matHeaderCellDef>Preço Médio</th>
+            <td mat-cell *matCellDef="let item">
+              {{ item.precoMedio | currency:'BRL' }}
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedResiduosColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedResiduosColumns;"></tr>
+        </table>
+      }
+    </section>
+  }
+</div>
