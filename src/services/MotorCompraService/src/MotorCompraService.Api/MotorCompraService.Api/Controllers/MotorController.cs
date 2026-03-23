@@ -649,6 +649,99 @@ public sealed class MotorController(
         }
     }
 
+    // pega a ultima data de execucao olhando para aportes, depois para a data e calcula
+    //quantos clientes tiveram aportes, total consolidado, quantas ordens criadas, quantas distribuicoes,
+    //estimativa util de movimentacao de custodia, quantidade de eventos IR publicados
+    [HttpGet("ultimo-resumo")]
+    public async Task<IActionResult> UltimoResumo(CancellationToken ct)
+    {
+        using var activity = Telemetry.ActivitySource.StartActivity("motor_compra.consultar_ultimo_resumo", ActivityKind.Server);
+
+        using var logScope = logger.BeginScope(LogScopeHelper.CreateTraceScope());
+
+        var ultimaData = await db.Aportes
+            .OrderByDescending(x => x.DataReferencia)
+            .Select(x => (DateTime?)x.DataReferencia)
+            .FirstOrDefaultAsync(ct);
+
+        if (ultimaData is null)
+        {
+            logger.LogInformation("Consulta de ultimo resumo realizada sem execucoes previas do motor.");
+
+            return Ok(new
+            {
+                dataReferencia = (DateTime?)null,
+                totalClientes = 0,
+                totalConsolidado = 0m,
+                totalOrdens = 0,
+                totalDistribuicoes = 0,
+                movimentacoesCustodia = 0,
+                eventosIRPublicados = 0,
+                residuosCustodiaMaster = 0
+            });
+        }
+
+        var dataRef = ultimaData.Value.Date;
+
+        var aportes = await db.Aportes
+            .Where(x => x.DataReferencia.Date == dataRef)
+            .ToListAsync(ct);
+
+        var ordens = await db.OrdensCompra
+            .Where(x => x.DataExecucao.Date == dataRef)
+            .ToListAsync(ct);
+
+        var distribuicoes = await db.Distribuicoes
+            .Where(x => x.DataDistribuicao.Date == dataRef)
+            .ToListAsync(ct);
+
+        var totalClientes = aportes
+            .Select(x => x.ClienteId)
+            .Distinct()
+            .Count();
+
+        var totalConsolidado = aportes.Sum(x => x.Valor);
+
+        var totalOrdens = ordens.Count;
+        var totalDistribuicoes = distribuicoes.Count;
+
+        // aproximacao util para dashboard =
+        // cada distribuicao gera 2 movimentacoes na custodia
+        // e cada ordem de compra representa uma movimentacao de compra master
+        var movimentacoesCustodia = totalOrdens + (totalDistribuicoes * 2);
+
+        // no fluxo atual, cada distribuicao publica 1 evento IR
+        var eventosIRPublicados = totalDistribuicoes;
+
+        // residuos estimados = ordens que sobraram sem distribuicao total nao ficam explicitas aqui
+        var residuosCustodiaMaster = 0;
+
+        activity?.SetTag("motor_compra.ultimo_resumo.data_referencia", dataRef.ToString("yyyy-MM-dd"));
+        activity?.SetTag("motor_compra.ultimo_resumo.total_clientes", totalClientes);
+        activity?.SetTag("motor_compra.ultimo_resumo.total_consolidado", (double)totalConsolidado);
+
+        logger.LogInformation(
+            "Consulta de ultimo resumo do motor realizada. DataRef={DataRef}, TotalClientes={TotalClientes}, TotalConsolidado={TotalConsolidado}, TotalOrdens={TotalOrdens}, TotalDistribuicoes={TotalDistribuicoes}",
+            dataRef,
+            totalClientes,
+            totalConsolidado,
+            totalOrdens,
+            totalDistribuicoes
+        );
+
+        return Ok(new
+        {
+            dataReferencia = dataRef,
+            totalClientes,
+            totalConsolidado,
+            totalOrdens,
+            totalDistribuicoes,
+            movimentacoesCustodia,
+            eventosIRPublicados,
+            residuosCustodiaMaster
+        });
+    }
+
     [HttpGet("aportes/{clienteId:long}")]
     public async Task<IActionResult> Aportes(long clienteId, CancellationToken ct)
     {
