@@ -10,3 +10,11 @@ TestResults/
 *.http
 *.Backup.tmp
 WeatherForecast.cs
+
+/node_modules
+/.angular
+/dist
+/coverage
+/.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
