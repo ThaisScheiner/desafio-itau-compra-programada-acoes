@@ -1,0 +1,160 @@
+<div class="cliente-detalhe-page">
+  <div class="page-header">
+    <div>
+      <span class="page-kicker">COMPRA PROGRAMADA DE AÇÕES</span>
+      <h1>Detalhe do Cliente</h1>
+      <p>Acompanhe carteira, rentabilidade e dados do cliente selecionado.</p>
+    </div>
+
+    <button class="btn-secondary" routerLink="/clientes" type="button">
+      Voltar
+    </button>
+  </div>
+
+  @if (loading) {
+    <div class="state-message">
+      Carregando detalhes do cliente...
+    </div>
+  } @else if (erro) {
+    <div class="state-message empty">
+      {{ erro }}
+    </div>
+  } @else {
+    <div class="hero-card">
+      <div class="hero-content">
+        <div>
+          <span class="hero-label">Cliente</span>
+          <h2>{{ cliente?.nome || 'Cliente não encontrado' }}</h2>
+        </div>
+
+        <div class="hero-meta">
+          <span><strong>ID:</strong> {{ cliente?.clienteId }}</span>
+          <span><strong>CPF:</strong> {{ cliente?.cpf || '-' }}</span>
+          <span><strong>Conta gráfica:</strong> {{ contaGrafica }}</span>
+          <span><strong>Status:</strong> {{ statusCliente }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <span class="summary-label">Valor mensal</span>
+        <strong class="summary-value">
+          {{ valorMensal | currency:'BRL' }}
+        </strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Valor total investido</span>
+        <strong class="summary-value">
+          {{ valorInvestido | currency:'BRL' }}
+        </strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Valor atual da carteira</span>
+        <strong class="summary-value">
+          {{ valorAtualCarteira | currency:'BRL' }}
+        </strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">P/L total</span>
+        <strong class="summary-value">
+          {{ plTotal | currency:'BRL' }}
+        </strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Rentabilidade %</span>
+        <strong class="summary-value">
+          {{ rentabilidadePercentual }}%
+        </strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Quantidade de ativos</span>
+        <strong class="summary-value">{{ quantidadeAtivos }}</strong>
+      </div>
+
+      <div class="summary-card">
+        <span class="summary-label">Data da consulta</span>
+        <strong class="summary-value small">
+          {{ dataConsulta | date:'dd/MM/yyyy HH:mm' }}
+        </strong>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <div class="section-header">
+        <h3>Carteira Atual</h3>
+        <p>Composição atual da carteira do cliente.</p>
+      </div>
+
+      @if (carteira.length === 0) {
+        <div class="state-message empty">
+          Nenhum ativo encontrado para este cliente.
+        </div>
+      } @else {
+        <div class="table-card">
+          <table mat-table [dataSource]="carteira" class="carteira-table">
+            <ng-container matColumnDef="ticker">
+              <th mat-header-cell *matHeaderCellDef>Ticker</th>
+              <td mat-cell *matCellDef="let item">{{ item.ticker }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="quantidade">
+              <th mat-header-cell *matHeaderCellDef>Quantidade</th>
+              <td mat-cell *matCellDef="let item">{{ item.quantidade }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="precoMedio">
+              <th mat-header-cell *matHeaderCellDef>Preço Médio</th>
+              <td mat-cell *matCellDef="let item">
+                {{ item.precoMedio | currency:'BRL' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="cotacaoAtual">
+              <th mat-header-cell *matHeaderCellDef>Cotação Atual</th>
+              <td mat-cell *matCellDef="let item">
+                {{ item.cotacaoAtual | currency:'BRL' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="valorAtual">
+              <th mat-header-cell *matHeaderCellDef>Valor Atual</th>
+              <td mat-cell *matCellDef="let item">
+                {{ item.valorAtual | currency:'BRL' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="composicaoCarteira">
+              <th mat-header-cell *matHeaderCellDef>Composição</th>
+              <td mat-cell *matCellDef="let item">
+                {{ item.composicaoCarteira }}%
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="pl">
+              <th mat-header-cell *matHeaderCellDef>P/L</th>
+              <td mat-cell *matCellDef="let item" class="lucro-cell">
+                {{ item.pl | currency:'BRL' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="plPercentual">
+              <th mat-header-cell *matHeaderCellDef>P/L %</th>
+              <td mat-cell *matCellDef="let item">
+                {{ item.plPercentual }}%
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+      }
+    </div>
+  }
+</div>

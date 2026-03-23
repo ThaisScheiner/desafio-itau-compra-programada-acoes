@@ -1,0 +1,103 @@
+<div class="cliente-form-page">
+  <div class="page-header">
+    <div>
+      <span class="page-kicker">COMPRA PROGRAMADA DE AÇÕES</span>
+      <h1>Novo Cliente</h1>
+      <p>Cadastre um novo cliente no produto de compra programada.</p>
+    </div>
+
+    <button class="btn-outline" routerLink="/clientes" type="button">
+      Voltar
+    </button>
+  </div>
+
+  <div class="form-card">
+    <form [formGroup]="form" (ngSubmit)="salvar()">
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Nome completo</mat-label>
+          <input matInput formControlName="nome" placeholder="Ex: João da Silva" />
+
+          @if (nome?.hasError('required') && nome?.touched) {
+            <mat-error>Informe o nome completo.</mat-error>
+          }
+
+          @if (nome?.hasError('minlength') && nome?.touched) {
+            <mat-error>O nome deve ter pelo menos 3 caracteres.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>CPF</mat-label>
+          <input
+            matInput
+            formControlName="cpf"
+            placeholder="Somente números"
+            maxlength="11"
+          />
+
+          @if (cpf?.hasError('required') && cpf?.touched) {
+            <mat-error>Informe o CPF.</mat-error>
+          }
+
+          @if ((cpf?.hasError('minlength') || cpf?.hasError('maxlength')) && cpf?.touched) {
+            <mat-error>O CPF deve ter 11 dígitos.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>E-mail</mat-label>
+          <input matInput formControlName="email" placeholder="Ex: joao@email.com" />
+
+          @if (email?.hasError('required') && email?.touched) {
+            <mat-error>Informe o e-mail.</mat-error>
+          }
+
+          @if (email?.hasError('email') && email?.touched) {
+            <mat-error>Informe um e-mail válido.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Valor mensal</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="valorMensal"
+            placeholder="Ex: 3000"
+            min="100"
+            step="0.01"
+          />
+
+          @if (valorMensal?.hasError('required') && valorMensal?.touched) {
+            <mat-error>Informe o valor mensal.</mat-error>
+          }
+
+          @if (valorMensal?.hasError('min') && valorMensal?.touched) {
+            <mat-error>O valor mínimo é R$ 100,00.</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      @if (erro) {
+        <div class="error-box">
+          {{ erro }}
+        </div>
+      }
+
+      <div class="form-actions">
+        <button class="btn-secondary" type="button" routerLink="/clientes">
+          Cancelar
+        </button>
+
+        <button class="btn-primary" type="submit" [disabled]="loading">
+          @if (loading) {
+            Salvando...
+          } @else {
+            Salvar Cliente
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
