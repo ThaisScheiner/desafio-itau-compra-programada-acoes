@@ -1,0 +1,102 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">COMPRA PROGRAMADA DE AÇÕES</p>
+      <h1>Nova Cesta</h1>
+      <p class="subtitle">
+        Cadastre uma nova composição da Top Five com percentuais que somem 100%.
+      </p>
+    </div>
+
+    <button type="button" class="secondary-btn" routerLink="/cestas">
+      Voltar
+    </button>
+  </header>
+
+  <form [formGroup]="form" (ngSubmit)="salvar()" class="form-card">
+    <section class="section-block">
+      <h2>Informações principais</h2>
+
+      <div class="form-grid single">
+        <mat-form-field appearance="outline">
+          <mat-label>Nome da cesta</mat-label>
+          <input matInput formControlName="nome" placeholder="Ex: Top Five - Abril 2026" />
+
+          @if (form.get('nome')?.invalid && form.get('nome')?.touched) {
+            <mat-error>Informe o nome da cesta.</mat-error>
+          }
+        </mat-form-field>
+      </div>
+    </section>
+
+    <section class="section-block">
+      <div class="section-top">
+        <div>
+          <h2>Ativos da cesta</h2>
+          <p>Adicione exatamente 5 ativos e garanta que a soma dos percentuais seja 100%.</p>
+        </div>
+
+        <button type="button" class="secondary-btn" (click)="adicionarItem()">
+          Adicionar ativo
+        </button>
+      </div>
+
+      <div formArrayName="itens" class="items-list">
+        @for (item of itens.controls; track $index) {
+          <div [formGroupName]="$index" class="item-row">
+            <div class="item-fields">
+              <mat-form-field appearance="outline">
+                <mat-label>Ticker</mat-label>
+                <input matInput formControlName="ticker" placeholder="PETR4" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Percentual</mat-label>
+                <input matInput type="number" formControlName="percentual" placeholder="20" />
+                <span matTextSuffix>%</span>
+              </mat-form-field>
+            </div>
+
+            <button
+              type="button"
+              class="remove-btn"
+              (click)="removerItem($index)"
+              [disabled]="itens.length <= 1">
+              Remover
+            </button>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="summary-panel">
+      <div class="summary-box">
+        <span class="summary-title">Quantidade de ativos</span>
+        <strong>{{ itens.length }}</strong>
+      </div>
+
+      <div class="summary-box">
+        <span class="summary-title">Soma dos percentuais</span>
+        <strong [class.invalid]="totalPercentual !== 100">
+          {{ totalPercentual }}%
+        </strong>
+      </div>
+    </section>
+
+    @if (erroPercentual) {
+      <div class="alert error">
+        A soma dos percentuais deve ser exatamente 100%.
+      </div>
+    }
+
+    <div class="actions">
+      <button type="button" class="ghost-btn" routerLink="/cestas">
+        Cancelar
+      </button>
+
+      <button type="submit" class="primary-btn" [disabled]="form.invalid || totalPercentual !== 100 || saving">
+        {{ saving ? 'Salvando...' : 'Salvar Cesta' }}
+      </button>
+    </div>
+  </form>
+</section>

@@ -1,0 +1,132 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">COMPRA PROGRAMADA DE AÇÕES</p>
+      <h1>Cestas</h1>
+      <p class="subtitle">
+        Gerencie a composição da Top Five e acompanhe o histórico das recomendações.
+      </p>
+    </div>
+
+    <a routerLink="/cestas/nova" class="primary-btn">
+      Nova Cesta
+    </a>
+  </header>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span class="summary-label">Total de cestas carregadas</span>
+      <strong class="summary-value">{{ cestas.length }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span class="summary-label">Cesta ativa</span>
+      <strong class="summary-value">
+        {{ cestaAtual?.nome || 'Nenhuma ativa' }}
+      </strong>
+    </article>
+  </section>
+
+  @if (loading) {
+    <section class="content-card loading-card">
+      <p>Carregando cestas...</p>
+    </section>
+  } @else {
+    @if (cestas.length === 0) {
+      <section class="content-card empty-card">
+        <p>Nenhuma cesta encontrada.</p>
+      </section>
+    } @else {
+      <section class="content-card table-card">
+        <table mat-table [dataSource]="cestas" class="cestas-table">
+          <ng-container matColumnDef="cestaId">
+            <th mat-header-cell *matHeaderCellDef>ID</th>
+            <td mat-cell *matCellDef="let cesta">{{ cesta.cestaId }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="nome">
+            <th mat-header-cell *matHeaderCellDef>Nome</th>
+            <td mat-cell *matCellDef="let cesta">{{ cesta.nome }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let cesta">
+              <span class="status-badge" [class.active]="cesta.ativa">
+                {{ cesta.ativa ? 'Ativa' : 'Inativa' }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="dataCriacao">
+            <th mat-header-cell *matHeaderCellDef>Data Criação</th>
+            <td mat-cell *matCellDef="let cesta">
+              {{ cesta.dataCriacao | date:'dd/MM/yyyy HH:mm' }}
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </section>
+
+      @if (cestaAtual) {
+        <section class="content-card active-basket-card">
+          <div class="basket-header">
+            <div>
+              <h2>{{ cestaAtual.nome }}</h2>
+              <p>Cesta atualmente ativa no sistema</p>
+            </div>
+
+            <span class="status-badge active">Ativa</span>
+          </div>
+
+          <div class="basket-items-grid">
+            @for (item of cestaAtual.itens; track item.ticker) {
+              <article class="basket-item">
+                <span class="ticker">{{ item.ticker }}</span>
+                <strong class="percentual">{{ item.percentual }}%</strong>
+              </article>
+            }
+          </div>
+        </section>
+      }
+
+      @if (historico && historico.length > 0) {
+        <section class="content-card history-card">
+          <div class="section-title">
+            <h2>Histórico de cestas</h2>
+            <p>Últimas composições cadastradas</p>
+          </div>
+
+          <div class="history-list">
+            @for (cesta of historico; track cesta.cestaId) {
+              <article class="history-item">
+                <div class="history-item-header">
+                  <div>
+                    <h3>{{ cesta.nome }}</h3>
+                    <p>
+                      Criada em {{ cesta.dataCriacao | date:'dd/MM/yyyy HH:mm' }}
+                    </p>
+                  </div>
+
+                  <span class="status-badge" [class.active]="cesta.ativa">
+                    {{ cesta.ativa ? 'Ativa' : 'Inativa' }}
+                  </span>
+                </div>
+
+                <div class="history-tags">
+                  @for (item of cesta.itens; track item.ticker) {
+                    <span class="history-tag">
+                      {{ item.ticker }} · {{ item.percentual }}%
+                    </span>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+    }
+  }
+</section>
