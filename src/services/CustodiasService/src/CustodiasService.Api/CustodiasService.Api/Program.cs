@@ -1,5 +1,6 @@
 using BuildingBlocks.Correlation;
 using BuildingBlocks.Extensions;
+using BuildingBlocks.Observability;
 using CustodiasService.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,11 +17,21 @@ var cs = builder.Configuration.GetConnectionString("MySql")
          ?? throw new InvalidOperationException("ConnectionStrings:MySql nao configurada no appsettings.");
 
 builder.Services.AddDbContext<CustodiasDbContext>(opt =>
-    opt.UseMySql(cs, ServerVersion.AutoDetect(cs)));
+    opt.UseMySql(cs, new MySqlServerVersion(new Version(8, 0, 36))));
 
-// HealthCheck  DbContext
+// HealthCheck DbContext
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<CustodiasDbContext>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularFront",
+        policy => policy
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .WithExposedHeaders("X-Trace-Id", "X-Span-Id", "X-Correlation-Id", "X-Request-Id"));
+});
 
 var app = builder.Build();
 
@@ -30,6 +41,9 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<TelemetryHeadersMiddleware>();
+
+app.UseCors("AngularFront");
 
 app.MapControllers();
 app.MapHealthChecks("/health");

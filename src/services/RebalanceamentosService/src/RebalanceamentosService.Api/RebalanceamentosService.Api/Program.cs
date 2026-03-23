@@ -1,5 +1,7 @@
+using System.Net;
 using BuildingBlocks.Correlation;
 using BuildingBlocks.Extensions;
+using BuildingBlocks.Observability;
 using Microsoft.EntityFrameworkCore;
 using Polly;
 using Polly.Extensions.Http;
@@ -8,7 +10,6 @@ using RebalanceamentosService.Api.Infrastructure.Health;
 using RebalanceamentosService.Api.Infrastructure.Kafka;
 using RebalanceamentosService.Api.Infrastructure.Persistence;
 using RebalanceamentosService.Api.Infrastructure.Scheduler;
-using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +23,7 @@ var cs = builder.Configuration.GetConnectionString("MySql")
          ?? throw new InvalidOperationException("ConnectionStrings:MySql nao configurada no appsettings.");
 
 builder.Services.AddDbContext<RebalanceamentosDbContext>(opt =>
-    opt.UseMySql(cs, ServerVersion.AutoDetect(cs)));
+    opt.UseMySql(cs, new MySqlServerVersion(new Version(8, 0, 36))));
 
 // POLLY POLICIES
 static IAsyncPolicy<HttpResponseMessage> RetryWithBackoffPolicy(ILogger logger)
@@ -102,13 +103,22 @@ builder.Services.AddScoped<IRebalanceamentoExecutor, RebalanceamentoExecutor>();
 builder.Services.AddHostedService<CestasKafkaConsumerService>();
 builder.Services.AddSingleton<IKafkaProducer, KafkaProducer>();
 
-//Health
+// Health
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<RebalanceamentosDbContext>()
     .AddCheck<KafkaHealthCheck>("kafka");
 
-
 builder.Services.AddHostedService<RebalanceamentoSchedulerService>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularFront",
+        policy => policy
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .WithExposedHeaders("X-Trace-Id", "X-Span-Id", "X-Correlation-Id", "X-Request-Id"));
+});
 
 var app = builder.Build();
 
@@ -118,6 +128,9 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<TelemetryHeadersMiddleware>();
+
+app.UseCors("AngularFront");
 
 app.MapControllers();
 app.MapHealthChecks("/health");

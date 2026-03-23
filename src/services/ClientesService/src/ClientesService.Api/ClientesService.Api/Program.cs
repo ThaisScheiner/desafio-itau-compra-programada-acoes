@@ -1,5 +1,6 @@
 using BuildingBlocks.Correlation;
 using BuildingBlocks.Extensions;
+using BuildingBlocks.Observability;
 using ClientesService.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,20 +12,14 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddBuildingBlocks();
 
-builder.Services.AddHealthChecks();
-
-var cs = builder.Configuration.GetConnectionString("MySql")!;
+var cs = builder.Configuration.GetConnectionString("MySql")
+         ?? throw new InvalidOperationException("ConnectionStrings:MySql nao configurada no appsettings.");
 
 builder.Services.AddDbContext<ClientesDbContext>(opt =>
-    opt.UseMySql(cs, ServerVersion.AutoDetect(cs)));
+    opt.UseMySql(cs, new MySqlServerVersion(new Version(8, 0, 36))));
 
 builder.Services.AddHealthChecks()
-    .AddMySql(cs);
-
-var cotacoesBase = builder.Configuration["Services:CotacoesService"]
-                  ?? throw new InvalidOperationException("Services:CotacoesService nao configurado.");
-var custodiasBase = builder.Configuration["Services:CustodiasService"]
-                   ?? throw new InvalidOperationException("Services:CustodiasService nao configurado.");
+    .AddMySql(cs, name: "mysql");
 
 builder.Services.AddHttpClient("CustodiasService", c =>
 {
@@ -44,6 +39,16 @@ builder.Services.AddHttpClient("MotorCompraService", c =>
     c.Timeout = TimeSpan.FromSeconds(10);
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularFront",
+        policy => policy
+            .WithOrigins("http://localhost:4200")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .WithExposedHeaders("X-Trace-Id", "X-Span-Id", "X-Correlation-Id", "X-Request-Id"));
+});
+
 var app = builder.Build();
 
 app.UseBuildingBlocks();
@@ -52,6 +57,9 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<TelemetryHeadersMiddleware>();
+
+app.UseCors("AngularFront");
 
 app.MapControllers();
 app.MapHealthChecks("/health");
