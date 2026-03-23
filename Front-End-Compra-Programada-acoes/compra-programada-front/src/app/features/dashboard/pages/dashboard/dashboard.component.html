@@ -1,0 +1,69 @@
+<section class="page-shell">
+  <header class="hero">
+    <div class="hero-content">
+      <p class="eyebrow">COMPRA PROGRAMADA DE AÇÕES</p>
+      <h1>Painel Inicial</h1>
+      <p class="subtitle">
+        Navegue pelos serviços do sistema e acesse rapidamente os principais fluxos
+        operacionais da plataforma.
+      </p>
+
+      <div class="hero-actions">
+        <a mat-raised-button class="primary-btn" routerLink="/clientes">
+          Ir para clientes
+        </a>
+
+        <a mat-stroked-button class="secondary-btn" routerLink="/observabilidade">
+          Ver observabilidade
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span class="summary-label">Serviços já implementados</span>
+      <strong class="summary-value">4</strong>
+    </article>
+
+    <article class="summary-card">
+      <span class="summary-label">Fluxo principal</span>
+      <strong class="summary-value">Compra programada</strong>
+    </article>
+
+    <article class="summary-card wide">
+      <span class="summary-label">Objetivo da plataforma</span>
+      <strong class="summary-value">
+        Orquestrar clientes, cestas, execução do motor e observabilidade
+      </strong>
+    </article>
+  </section>
+
+  <section class="section-header">
+    <div>
+      <p class="section-eyebrow">NAVEGAÇÃO</p>
+      <h2>Módulos disponíveis</h2>
+    </div>
+  </section>
+
+  <section class="modules-grid">
+    @for (atalho of atalhos; track atalho.rota) {
+      <article class="module-card">
+        <div class="module-top">
+          <span class="module-tag">{{ atalho.tag }}</span>
+        </div>
+
+        <div class="module-body">
+          <h3>{{ atalho.titulo }}</h3>
+          <p>{{ atalho.descricao }}</p>
+        </div>
+
+        <div class="module-footer">
+          <a mat-raised-button class="primary-btn" [routerLink]="atalho.rota">
+            Acessar
+          </a>
+        </div>
+      </article>
+    }
+  </section>
+</section>
